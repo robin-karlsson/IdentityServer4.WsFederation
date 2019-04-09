@@ -56,7 +56,8 @@ namespace IdentityServer4.WsFederation.Tests.ResponseGenerator
                     Wa = WsFederationConstants.WsFederationActions.SignIn,
                     Wctx = "Context",
                     Wreply = "http://example.com/mywreply",
-                    Wtrealm = "http://example.com/myrealm"
+                    Wtrealm = "http://example.com/myrealm",
+                    Whr = "urn:Test"
                 },
                 Subject = new ClaimsPrincipal(new ClaimsIdentity(new List<Claim> { new Claim(IdentityModel.JwtClaimTypes.Name, "Bob Smith") }))
             };
@@ -109,6 +110,15 @@ namespace IdentityServer4.WsFederation.Tests.ResponseGenerator
             var request = GetDefaultValidatedRequest();
             var response = generator.GenerateResponseAsync(request).Result;
             StringAssert.Contains(response.ResponseMessage.Wresult, "RequestSecurityTokenResponse");
+        }
+
+        [TestMethod]
+        public void ResponseHasCorrectWhr()
+        {
+            var generator = GetDefaultResponseGenerator();
+            var request = GetDefaultValidatedRequest();
+            var response = generator.GenerateResponseAsync(request).Result;
+            StringAssert.Contains(response.ResponseMessage.Whr, "urn:Test");
         }
 
         [TestMethod]

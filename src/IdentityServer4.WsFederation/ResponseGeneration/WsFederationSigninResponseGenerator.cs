@@ -9,6 +9,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.IdentityModel.Tokens.Saml2;
 using System.Security.Claims;
 using System.Threading.Tasks;
+using Microsoft.IdentityModel.Tokens.Saml;
 
 namespace IdentityServer4.WsFederation
 {
@@ -35,6 +36,7 @@ namespace IdentityServer4.WsFederation
                 IssuerAddress = request.RequestMessage.Wreply,
                 Wa = request.RequestMessage.Wa,
                 Wctx = request.RequestMessage.Wctx,
+                Whr = request.RequestMessage.Whr,
                 Wresult = await GenerateSerializedRstr(request)
             };
 
@@ -75,6 +77,7 @@ namespace IdentityServer4.WsFederation
             }
 
             _logger.LogDebug("Creating SAML 2.0 security token.");
+            
             var tokenHandler = new Saml2SecurityTokenHandler();
             var token = tokenHandler.CreateToken(tokenDescriptor);
 

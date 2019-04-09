@@ -4,9 +4,6 @@ using IdentityServer4.WsFederation.Validation;
 using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace IdentityServer4.WsFederation.Tests.Endpoints
 {

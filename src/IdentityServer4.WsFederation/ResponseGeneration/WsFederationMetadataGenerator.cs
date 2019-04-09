@@ -33,7 +33,7 @@ namespace IdentityServer4.WsFederation
                 TokenEndpoint = context.Items["idsvr:IdentityServerOrigin"] + "/wsfederation/signin"
             };
             //For whatever reason, the Digest method isn't specified in the builder extensions for identity server.
-            //Not a good solution to force the user to use th eoverload that takes SigningCredentials
+            //Not a good solution to force the user to use the overload that takes SigningCredentials
             //IdentityServer4/Configuration/DependencyInjection/BuilderExtensions/Crypto.cs
             //Instead, it should be supported in:
             //  The overload that takes a X509Certificate2
