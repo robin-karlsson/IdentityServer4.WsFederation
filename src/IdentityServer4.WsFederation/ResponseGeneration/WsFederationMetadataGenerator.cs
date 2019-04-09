@@ -44,7 +44,7 @@ namespace IdentityServer4.WsFederation
             if (configuration.SigningCredentials.Digest == null)
             {
                 _logger.LogInformation($"SigningCredentials does not have a digest specified. Using default digest algorithm of {SecurityAlgorithms.Sha256Digest}");
-                configuration.SigningCredentials = new SigningCredentials(configuration.SigningCredentials.Key, configuration.SigningCredentials.Algorithm, SecurityAlgorithms.Sha256Digest);
+                configuration.SigningCredentials = new SigningCredentials(configuration.SigningCredentials.Key, configuration.SigningCredentials.Algorithm ?? SecurityAlgorithms.RsaSha256Signature, SecurityAlgorithms.Sha256Digest);
             }
             configuration.KeyInfos.Add(new KeyInfo(configuration.SigningCredentials.Key));
 

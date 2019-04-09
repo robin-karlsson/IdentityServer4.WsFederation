@@ -9,7 +9,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.IdentityModel.Tokens.Saml2;
 using System.Security.Claims;
 using System.Threading.Tasks;
-using Microsoft.IdentityModel.Tokens.Saml;
+using System.Xml;
 
 namespace IdentityServer4.WsFederation
 {
@@ -33,7 +33,7 @@ namespace IdentityServer4.WsFederation
             _logger.LogDebug("Creating WsFederation Signin Response.");
             var responseMessage = new WsFederationMessage
             {
-                IssuerAddress = request.RequestMessage.Wreply,
+                IssuerAddress = request.RequestMessage.Wreply ?? "",
                 Wa = request.RequestMessage.Wa,
                 Wctx = request.RequestMessage.Wctx,
                 Whr = request.RequestMessage.Whr,
@@ -51,6 +51,9 @@ namespace IdentityServer4.WsFederation
         public async Task<string> GenerateSerializedRstr(ValidatedWsFederationRequest request)
         {
             var now = _clock.UtcNow.UtcDateTime;
+            var credential = await _keys.GetSigningCredentialsAsync();
+            var key = credential.Key as X509SecurityKey;
+
             var tokenDescriptor = new SecurityTokenDescriptor
             {
                 Audience = request.RequestMessage.Wtrealm,
@@ -58,11 +61,11 @@ namespace IdentityServer4.WsFederation
                 IssuedAt = now,
                 Issuer = _options.IssuerUri,
                 NotBefore = now,
-                SigningCredentials = await _keys.GetSigningCredentialsAsync(),
+                SigningCredentials = key == null ? credential : new X509SigningCredentials(key.Certificate, SecurityAlgorithms.RsaSha256Signature),
                 Subject = request.Subject.Identity as ClaimsIdentity
             };
             //For whatever reason, the Digest method isn't specified in the builder extensions for identity server.
-            //Not a good solution to force the user to use th eoverload that takes SigningCredentials
+            //Not a good solution to force the user to use the overload that takes SigningCredentials
             //IdentityServer4/Configuration/DependencyInjection/BuilderExtensions/Crypto.cs
             //Instead, it should be supported in:
             //  The overload that takes a X509Certificate2
@@ -73,7 +76,7 @@ namespace IdentityServer4.WsFederation
             if (tokenDescriptor.SigningCredentials.Digest == null)
             {
                 _logger.LogInformation($"SigningCredentials does not have a digest specified. Using default digest algorithm of {SecurityAlgorithms.Sha256Digest}");
-                tokenDescriptor.SigningCredentials = new SigningCredentials(tokenDescriptor.SigningCredentials.Key, tokenDescriptor.SigningCredentials.Algorithm, SecurityAlgorithms.Sha256Digest);
+                tokenDescriptor.SigningCredentials = new SigningCredentials(tokenDescriptor.SigningCredentials.Key, tokenDescriptor.SigningCredentials.Algorithm ?? SecurityAlgorithms.RsaSha256Signature, SecurityAlgorithms.Sha256Digest);
             }
 
             _logger.LogDebug("Creating SAML 2.0 security token.");
@@ -88,8 +91,8 @@ namespace IdentityServer4.WsFederation
                 KeyType = "http://schemas.xmlsoap.org/ws/2005/05/identity/NoProofKey",
                 Lifetime = new Lifetime
                 {
-                    Created = now.ToString(),
-                    Expires = now.AddSeconds(request.Client.IdentityTokenLifetime).ToString(),
+                    Created = XmlConvert.ToString(now, XmlDateTimeSerializationMode.Utc),
+                    Expires = XmlConvert.ToString(now.AddSeconds(request.Client.IdentityTokenLifetime),XmlDateTimeSerializationMode.Utc),
                 },
                 RequestedSecurityToken = token,
                 RequestType = "http://schemas.xmlsoap.org/ws/2005/02/trust/Issue",

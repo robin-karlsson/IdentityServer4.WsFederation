@@ -1,4 +1,5 @@
-﻿using System.Security.Claims;
+﻿using System.Linq;
+using System.Security.Claims;
 using System.Threading.Tasks;
 using IdentityServer4.Stores;
 using Microsoft.Extensions.Logging;
@@ -39,17 +40,18 @@ namespace IdentityServer4.WsFederation.Validation
                 return new WsFederationRequestValidationResult(validatedRequest, "Missing Wtrealm.", "Wtrealm was not passed in as a parameter.");
             }
 
-            if(string.IsNullOrEmpty(message.Wreply))
-            {
-                _logger.LogError("Wreply is missing from the request.", validatedRequest);
-                return new WsFederationRequestValidationResult(validatedRequest, "Missing Wreply.", "Wreply was not passed in as a parameter.");
-            }
-
             var client = await _clients.FindEnabledClientByIdAsync(message.Wtrealm);
-            if(client == null)
+            if (client == null)
             {
                 _logger.LogError("There is no client configured that matches the wtrealm parameter of the incoming request.", validatedRequest);
                 return new WsFederationRequestValidationResult(validatedRequest, "No Client", "There is no client configured that matches the wtrealm parameter of the incoming request.");
+            }
+
+            message.Wreply = message.Wreply ?? client.RedirectUris.First();
+            if (string.IsNullOrEmpty(message.Wreply))
+            {
+                _logger.LogError("Wreply is missing from the request.", validatedRequest);
+                return new WsFederationRequestValidationResult(validatedRequest, "Missing Wreply.", "Wreply was not passed in as a parameter.");
             }
 
             if(!client.RedirectUris.Contains(message.Wreply))
