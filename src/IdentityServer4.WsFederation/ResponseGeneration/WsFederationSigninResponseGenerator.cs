@@ -1,4 +1,6 @@
-﻿using IdentityServer4.Configuration;
+﻿using System;
+using System.Collections.Generic;
+using IdentityServer4.Configuration;
 using IdentityServer4.Services;
 using IdentityServer4.WsFederation.Validation;
 using IdentityServer4.WsFederation.WsTrust.Entities;
@@ -10,6 +12,10 @@ using Microsoft.IdentityModel.Tokens.Saml2;
 using System.Security.Claims;
 using System.Threading.Tasks;
 using System.Xml;
+using IdentityModel;
+using IdentityServer4.Extensions;
+using IdentityServer4.Models;
+using IdentityServer4.Stores;
 
 namespace IdentityServer4.WsFederation
 {
@@ -19,13 +25,17 @@ namespace IdentityServer4.WsFederation
         private readonly ISystemClock _clock;
         private readonly IdentityServerOptions _options;
         private readonly IKeyMaterialService _keys;
-        
-        public WsFederationSigninResponseGenerator(ILogger<WsFederationSigninResponseGenerator> logger, ISystemClock clock, IdentityServerOptions options, IKeyMaterialService keys)
+        private readonly IResourceStore _resources;
+        private readonly IProfileService _profile;
+
+        public WsFederationSigninResponseGenerator(ILogger<WsFederationSigninResponseGenerator> logger, ISystemClock clock, IdentityServerOptions options, IKeyMaterialService keys, IResourceStore resources, IProfileService profile)
         {
             _logger = logger;
             _clock = clock;
             _options = options;
             _keys = keys;
+            _resources = resources;
+            _profile = profile;
         }
 
         public async Task<WsFederationSigninResponse> GenerateResponseAsync(ValidatedWsFederationRequest request)
@@ -50,6 +60,7 @@ namespace IdentityServer4.WsFederation
 
         public async Task<string> GenerateSerializedRstr(ValidatedWsFederationRequest request)
         {
+            var wsfedOptions = new WsFederationOptions();
             var now = _clock.UtcNow.UtcDateTime;
             var credential = await _keys.GetSigningCredentialsAsync();
             var key = credential.Key as X509SecurityKey;
@@ -61,8 +72,8 @@ namespace IdentityServer4.WsFederation
                 IssuedAt = now,
                 Issuer = _options.IssuerUri,
                 NotBefore = now,
-                SigningCredentials = key == null ? credential : new X509SigningCredentials(key.Certificate, SecurityAlgorithms.RsaSha256Signature),
-                Subject = request.Subject.Identity as ClaimsIdentity
+                SigningCredentials = key == null ? credential : new X509SigningCredentials(key.Certificate, wsfedOptions.DefaultSignatureAlgorithm),
+                Subject = await CreateSubjectAsync(request)
             };
             //For whatever reason, the Digest method isn't specified in the builder extensions for identity server.
             //Not a good solution to force the user to use the overload that takes SigningCredentials
@@ -76,7 +87,7 @@ namespace IdentityServer4.WsFederation
             if (tokenDescriptor.SigningCredentials.Digest == null)
             {
                 _logger.LogInformation($"SigningCredentials does not have a digest specified. Using default digest algorithm of {SecurityAlgorithms.Sha256Digest}");
-                tokenDescriptor.SigningCredentials = new SigningCredentials(tokenDescriptor.SigningCredentials.Key, tokenDescriptor.SigningCredentials.Algorithm ?? SecurityAlgorithms.RsaSha256Signature, SecurityAlgorithms.Sha256Digest);
+                tokenDescriptor.SigningCredentials = new SigningCredentials(tokenDescriptor.SigningCredentials.Key, tokenDescriptor.SigningCredentials.Algorithm ?? wsfedOptions.DefaultSignatureAlgorithm, wsfedOptions.DefaultDigestAlgorithm);
             }
 
             _logger.LogDebug("Creating SAML 2.0 security token.");
@@ -96,9 +107,82 @@ namespace IdentityServer4.WsFederation
                 },
                 RequestedSecurityToken = token,
                 RequestType = "http://schemas.xmlsoap.org/ws/2005/02/trust/Issue",
-                TokenType = "http://docs.oasis-open.org/wss/oasis-wss-saml-token-profile-1.1#SAMLV2.0"
+                TokenType = WsFederationConstants.TokenTypes.Saml2TokenProfile11
             };
             return RequestSecurityTokenResponseSerializer.Serialize(rstr);
+        }
+
+
+        protected async Task<ClaimsIdentity> CreateSubjectAsync(ValidatedWsFederationRequest result)
+        {
+            var requestedClaimTypes = new List<string>();
+
+            var resources = await _resources.FindEnabledIdentityResourcesByScopeAsync(result.Client.AllowedScopes);
+            foreach (var resource in resources)
+            {
+                foreach (var claim in resource.UserClaims)
+                {
+                    requestedClaimTypes.Add(claim);
+                }
+            }
+
+            var ctx = new ProfileDataRequestContext
+            {
+                Subject = result.Subject,
+                RequestedClaimTypes = requestedClaimTypes,
+                Client = result.Client,
+                Caller = "WS-Federation"
+            };
+
+            await _profile.GetProfileDataAsync(ctx);
+
+            // map outbound claims
+            var options = new WsFederationOptions();
+            var nameid = new Claim(ClaimTypes.NameIdentifier, result.Subject.GetSubjectId());
+            nameid.Properties[ClaimProperties.SamlNameIdentifierFormat] = options.DefaultSamlNameIdentifierFormat;
+
+            var outboundClaims = new List<Claim> { nameid };
+            foreach (var claim in ctx.IssuedClaims)
+            {
+                if (options.DefaultClaimMapping.TryGetValue(claim.Type, out var type))
+                {
+                    var outboundClaim = new Claim(type, claim.Value, claim.ValueType);
+                    if (outboundClaim.Type == ClaimTypes.NameIdentifier)
+                    {
+                        outboundClaim.Properties[ClaimProperties.SamlNameIdentifierFormat] = options.DefaultSamlNameIdentifierFormat;
+                    }
+
+                    outboundClaims.Add(outboundClaim);
+                }
+                else if (options.DefaultTokenType != WsFederationConstants.TokenTypes.Saml11TokenProfile11)
+                {
+                    outboundClaims.Add(claim);
+                }
+                else
+                {
+                    _logger.LogInformation("No explicit claim type mapping for {claimType} configured. Saml11 requires a URI claim type. Skipping.", claim.Type);
+                }
+            }
+
+            // The AuthnStatement statement generated from the following 2
+            // claims is mandatory for some service providers (i.e. Shibboleth-Sp). 
+            // The value of the AuthenticationMethod claim must be one of the constants in
+            // System.IdentityModel.Tokens.AuthenticationMethods.
+            // Password is the only one that can be directly matched, everything
+            // else defaults to Unspecified.
+            if (result.Subject.GetAuthenticationMethod() == OidcConstants.AuthenticationMethods.Password)
+            {
+                outboundClaims.Add(new Claim(ClaimTypes.AuthenticationMethod, OidcConstants.AuthenticationMethods.Password));
+            }
+            else
+            {
+                outboundClaims.Add(new Claim(ClaimTypes.AuthenticationMethod, "Unspecified"));
+            }
+
+            // authentication instant claim is required
+            outboundClaims.Add(new Claim(ClaimTypes.AuthenticationInstant, XmlConvert.ToString(DateTime.UtcNow, "yyyy-MM-ddTHH:mm:ss.fffZ"), ClaimValueTypes.DateTime));
+
+            return new ClaimsIdentity(outboundClaims, "idsrv");
         }
     }
 }

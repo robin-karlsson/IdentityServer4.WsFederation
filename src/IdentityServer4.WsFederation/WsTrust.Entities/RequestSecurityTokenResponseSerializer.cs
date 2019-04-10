@@ -1,11 +1,9 @@
-﻿using System;
-using System.IO;
+﻿using System.IO;
 using System.Text;
 using System.Xml;
 using System.Xml.Linq;
 using System.Xml.Serialization;
 using Microsoft.IdentityModel.Tokens;
-using Microsoft.IdentityModel.Tokens.Saml;
 using Microsoft.IdentityModel.Tokens.Saml2;
 
 namespace IdentityServer4.WsFederation.WsTrust.Entities
@@ -60,7 +58,6 @@ namespace IdentityServer4.WsFederation.WsTrust.Entities
             }
         }
 
-        //TODO: Handle both SAML 1.1 and SAML 2.0
         private static SecurityToken DeserializeToken(string rstrString)
         {
             var doc = XDocument.Parse(rstrString);

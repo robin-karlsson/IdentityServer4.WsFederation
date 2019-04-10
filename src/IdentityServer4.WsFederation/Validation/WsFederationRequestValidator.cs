@@ -71,7 +71,7 @@ namespace IdentityServer4.WsFederation.Validation
 
             switch (message.Wa)
             {
-                case WsFederationConstants.WsFederationActions.SignIn:
+                case Microsoft.IdentityModel.Protocols.WsFederation.WsFederationConstants.WsFederationActions.SignIn:
                     {
                         _logger.LogTrace("WsFederation signin request validation successful.");
                         return new WsFederationRequestValidationResult(validatedRequest);
@@ -79,7 +79,7 @@ namespace IdentityServer4.WsFederation.Validation
                 default:
                     {
                         _logger.LogError("Unsupported action.", validatedRequest);
-                        return new WsFederationRequestValidationResult(validatedRequest, "Unsupported action.", $"Only {WsFederationConstants.WsFederationActions.SignIn} is supported at this time.");
+                        return new WsFederationRequestValidationResult(validatedRequest, "Unsupported action.", $"Only {Microsoft.IdentityModel.Protocols.WsFederation.WsFederationConstants.WsFederationActions.SignIn} is supported at this time.");
                     }
             }
         }

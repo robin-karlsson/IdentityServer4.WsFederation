@@ -14,6 +14,8 @@ using System.Collections.Generic;
 using System.Security.Claims;
 using System.Security.Cryptography.X509Certificates;
 using System.Xml.Linq;
+using IdentityModel;
+using IdentityServer4.Stores;
 
 namespace IdentityServer4.WsFederation.Tests.ResponseGenerator
 {
@@ -39,27 +41,36 @@ namespace IdentityServer4.WsFederation.Tests.ResponseGenerator
                 IssuerUri = "http://example.com/testissuer"
             };
 
-            return new WsFederationSigninResponseGenerator(logger, clock, options, keys);
+            return new WsFederationSigninResponseGenerator(logger, clock, options, keys, new InMemoryResourcesStore(new []{new IdentityResource("name", new []{JwtClaimTypes.Name}), }),
+                new DefaultProfileService(Substitute.For<ILogger<DefaultProfileService>>()));
         }
 
         private ValidatedWsFederationRequest GetDefaultValidatedRequest()
         {
             var client = new Client
             {
-                IdentityTokenLifetime = 300
+                IdentityTokenLifetime = 300,
+                AllowedScopes = new [] { "name" },
+                ProtocolType = IdentityServerConstants.ProtocolTypes.WsFederation
             };
             var request = new ValidatedWsFederationRequest
             {
                 Client = client,
                 RequestMessage = new WsFederationMessage
                 {
-                    Wa = WsFederationConstants.WsFederationActions.SignIn,
+                    Wa = Microsoft.IdentityModel.Protocols.WsFederation.WsFederationConstants.WsFederationActions
+                        .SignIn,
                     Wctx = "Context",
                     Wreply = "http://example.com/mywreply",
                     Wtrealm = "http://example.com/myrealm",
                     Whr = "urn:Test"
                 },
-                Subject = new ClaimsPrincipal(new ClaimsIdentity(new List<Claim> { new Claim(IdentityModel.JwtClaimTypes.Name, "Bob Smith") }))
+                Subject = new ClaimsPrincipal(new ClaimsIdentity(new List<Claim>
+                {
+                    new Claim(IdentityModel.JwtClaimTypes.Name, "Bob Smith", ClaimValueTypes.String, "Test", "Test1"),
+                    new Claim(IdentityModel.JwtClaimTypes.Subject, "BobS", ClaimValueTypes.String, "Test"),
+                    new Claim(IdentityModel.JwtClaimTypes.AuthenticationMethod, "Test")
+                }))
             };
             request.SetClient(client);
             return request;
@@ -91,7 +102,7 @@ namespace IdentityServer4.WsFederation.Tests.ResponseGenerator
             var generator = GetDefaultResponseGenerator();
             var request = GetDefaultValidatedRequest();
             var response = generator.GenerateResponseAsync(request).Result;
-            Assert.AreEqual(WsFederationConstants.WsFederationActions.SignIn, response.ResponseMessage.Wa);
+            Assert.AreEqual(Microsoft.IdentityModel.Protocols.WsFederation.WsFederationConstants.WsFederationActions.SignIn, response.ResponseMessage.Wa);
         }
 
         [TestMethod]
