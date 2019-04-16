@@ -67,13 +67,16 @@ namespace IdentityServer4.WsFederation.Validation
                 return new WsFederationRequestValidationResult(validatedRequest, "Invalid protocol.", "The client identified by the wtrealm does not support WsFederation.");
             }
 
-            //TODO: Do we need to do any more config lookup a la relying party
-
             switch (message.Wa)
             {
                 case Microsoft.IdentityModel.Protocols.WsFederation.WsFederationConstants.WsFederationActions.SignIn:
                     {
                         _logger.LogTrace("WsFederation signin request validation successful.");
+                        return new WsFederationRequestValidationResult(validatedRequest);
+                    }
+                case Microsoft.IdentityModel.Protocols.WsFederation.WsFederationConstants.WsFederationActions.SignOut:
+                    {
+                        _logger.LogTrace("WsFederation signout request validation successful.");
                         return new WsFederationRequestValidationResult(validatedRequest);
                     }
                 default:

@@ -1,5 +1,4 @@
-﻿using IdentityServer4.Configuration;
-using IdentityServer4.Endpoints.Results;
+﻿using IdentityServer4.Endpoints.Results;
 using IdentityServer4.Hosting;
 using IdentityServer4.Services;
 using IdentityServer4.WsFederation.Validation;
@@ -11,18 +10,16 @@ using System.Threading.Tasks;
 
 namespace IdentityServer4.WsFederation
 {
-    public class WsFederationSigninEndpoint : IEndpointHandler
+    public class WsFederationEndpoint : IEndpointHandler
     {
         private readonly ILogger _logger;
-        private readonly IdentityServerOptions _options;
         private readonly IWsFederationRequestValidator _validator;
         private readonly IWsFederationResponseGenerator _responseGenerator;
         private readonly IUserSession _userSession;
 
-        public WsFederationSigninEndpoint(ILogger<WsFederationSigninEndpoint> logger, IdentityServerOptions options, IWsFederationRequestValidator validator, IWsFederationResponseGenerator responseGenerator, IUserSession userSession)
+        public WsFederationEndpoint(ILogger<WsFederationEndpoint> logger, IWsFederationRequestValidator validator, IWsFederationResponseGenerator responseGenerator, IUserSession userSession)
         {
             _logger = logger;
-            _options = options;
             _validator = validator;
             _responseGenerator = responseGenerator;
             _userSession = userSession;
@@ -30,30 +27,35 @@ namespace IdentityServer4.WsFederation
 
         public async Task<IEndpointResult> ProcessAsync(HttpContext context)
         {
-            _logger.LogDebug("Processing WsFederation signin request.");
+            _logger.LogDebug("Processing WsFederation request.");
 
             if (!HttpMethods.IsGet(context.Request.Method))
             {
-                _logger.LogWarning($"WsFederation signin endpoint only supports GET requests. Current method is {context.Request.Method}");
+                _logger.LogWarning($"WsFederation endpoint only supports GET requests. Current method is {context.Request.Method}");
                 return new StatusCodeResult(HttpStatusCode.MethodNotAllowed);
             }
 
             var user = await _userSession.GetUserAsync();
 
             var queryString = context.Request.QueryString;
-            _logger.LogDebug($"Proccessing WsFederation signin request with QueryString: {queryString}.");
+            _logger.LogDebug($"Proccessing WsFederation request with QueryString: {queryString}.");
 
             var message = WsFederationMessage.FromQueryString(queryString.Value);
             var validationResult = await _validator.ValidateAsync(message, user);
 
             if (validationResult.IsError)
             {
-                _logger.LogError("WsFederation Signin request validation failed.");
-                return new WsFederationSigninResult(new WsFederationSigninResponse {
+                _logger.LogError("WsFederation request validation failed.");
+                return new WsFederationErrorResult(new WsFederationErrorResponse {
                     Request = validationResult.ValidatedRequest,
                     Error = validationResult.Error,
                     ErrorDescription = validationResult.ErrorDescription
                 });
+            }
+
+            if (validationResult.ValidatedRequest.RequestMessage.IsSignOutMessage)
+            {
+                return new WsFederationSignOutResult();
             }
 
             //if needed, show login page

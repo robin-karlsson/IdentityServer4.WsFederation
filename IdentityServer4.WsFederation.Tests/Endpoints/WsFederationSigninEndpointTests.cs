@@ -10,7 +10,7 @@ namespace IdentityServer4.WsFederation.Tests.Endpoints
     [TestClass]
     public class WsFederationSigninEndpointTests
     {
-        private ILogger _logger = Substitute.For<ILogger<WsFederationSigninEndpoint>>();
+        private ILogger _logger = Substitute.For<ILogger<WsFederationEndpoint>>();
         private IdentityServerOptions _options;
         private IWsFederationRequestValidator _validator;
         private IWsFederationResponseGenerator _responseGenerator;
