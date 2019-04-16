@@ -55,7 +55,7 @@ namespace IdentityServer4.WsFederation
 
             if (validationResult.ValidatedRequest.RequestMessage.IsSignOutMessage)
             {
-                return new WsFederationSignOutResult();
+                return new WsFederationSignOutResult(validationResult.ValidatedRequest);
             }
 
             //if needed, show login page
