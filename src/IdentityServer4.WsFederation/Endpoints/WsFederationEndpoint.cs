@@ -38,7 +38,7 @@ namespace IdentityServer4.WsFederation
             var user = await _userSession.GetUserAsync();
 
             var queryString = context.Request.QueryString;
-            _logger.LogDebug($"Proccessing WsFederation request with QueryString: {queryString}.");
+            _logger.LogDebug($"Processing WsFederation request with QueryString: {queryString}.");
 
             var message = WsFederationMessage.FromQueryString(queryString.Value);
             var validationResult = await _validator.ValidateAsync(message, user);
