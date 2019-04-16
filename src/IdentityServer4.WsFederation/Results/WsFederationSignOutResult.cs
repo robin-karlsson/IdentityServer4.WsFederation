@@ -8,7 +8,7 @@ namespace IdentityServer4.WsFederation
     {
         public Task ExecuteAsync(HttpContext context)
         {
-            context.Response.Redirect("~/connect/endsession");
+            context.Response.Redirect("../connect/endsession");
             return Task.CompletedTask;
         }
     }

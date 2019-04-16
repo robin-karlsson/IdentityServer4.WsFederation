@@ -8,6 +8,7 @@ using Microsoft.IdentityModel.Xml;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml;
+using IdentityServer4.Extensions;
 
 namespace IdentityServer4.WsFederation
 {
@@ -30,7 +31,7 @@ namespace IdentityServer4.WsFederation
             {
                 Issuer = _options.IssuerUri,
                 SigningCredentials = await _keys.GetSigningCredentialsAsync(),
-                TokenEndpoint = context.Items["idsvr:IdentityServerOrigin"] + "/wsfederation/signin"
+                TokenEndpoint = context.GetIdentityServerOrigin() + "/wsfederation"
             };
             //For whatever reason, the Digest method isn't specified in the builder extensions for identity server.
             //Not a good solution to force the user to use the overload that takes SigningCredentials
