@@ -17,7 +17,7 @@ namespace IdentityServer4.WsFederation
 
         public Task ExecuteAsync(HttpContext context)
         {
-            context.Response.Redirect("../connect/endsession?post_logout_redirect_uri=" + Uri.EscapeUriString(_validatedRequest.RequestMessage.Wreply));
+            context.Response.Redirect("../connect/endsession?post_logout_redirect_uri=" + Uri.EscapeDataString(_validatedRequest.RequestMessage.Wreply));
             return Task.CompletedTask;
         }
     }
