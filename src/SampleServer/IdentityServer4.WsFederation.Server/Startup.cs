@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using IdentityServer4.Models;
 using IdentityServer4.Quickstart.UI;
 using System.Security.Cryptography.X509Certificates;
+using IdentityServer4.WsFederation.Behavior;
 using Microsoft.IdentityModel.Tokens;
 
 namespace IdentityServer4.WsFederation.Server
@@ -30,6 +31,9 @@ namespace IdentityServer4.WsFederation.Server
             .AddInMemoryClients(Clients.TestClients)
             .AddInMemoryApiResources(new List<ApiResource>())
             .AddWsFederation();
+
+            services.AddWsFederationRedirectSupport();
+            services.AddProviderSelectionAsFallback();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
