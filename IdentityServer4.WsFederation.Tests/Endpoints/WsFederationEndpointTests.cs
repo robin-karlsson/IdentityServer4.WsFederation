@@ -45,7 +45,7 @@ namespace IdentityServer4.WsFederation.Tests.Endpoints
             };
 
             return new WsFederationSigninResponseGenerator(logger, clock, options, keys, new InMemoryResourcesStore(new[] { new IdentityResource("name", new[] { JwtClaimTypes.Name }), new IdentityResources.Profile() }),
-                new DefaultProfileService(Substitute.For<ILogger<DefaultProfileService>>()));
+                new DefaultProfileService(Substitute.For<ILogger<DefaultProfileService>>()), new WsFederationOptions());
         }
 
         [TestMethod]

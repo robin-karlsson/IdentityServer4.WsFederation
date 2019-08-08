@@ -27,8 +27,9 @@ namespace IdentityServer4.WsFederation
         private readonly IKeyMaterialService _keys;
         private readonly IResourceStore _resources;
         private readonly IProfileService _profile;
+        private readonly WsFederationOptions _federationOptions;
 
-        public WsFederationSigninResponseGenerator(ILogger<WsFederationSigninResponseGenerator> logger, ISystemClock clock, IdentityServerOptions options, IKeyMaterialService keys, IResourceStore resources, IProfileService profile)
+        public WsFederationSigninResponseGenerator(ILogger<WsFederationSigninResponseGenerator> logger, ISystemClock clock, IdentityServerOptions options, IKeyMaterialService keys, IResourceStore resources, IProfileService profile, WsFederationOptions federationOptions)
         {
             _logger = logger;
             _clock = clock;
@@ -36,6 +37,7 @@ namespace IdentityServer4.WsFederation
             _keys = keys;
             _resources = resources;
             _profile = profile;
+            _federationOptions = federationOptions;
         }
 
         public async Task<WsFederationSigninResponse> GenerateResponseAsync(ValidatedWsFederationRequest request)
@@ -60,7 +62,6 @@ namespace IdentityServer4.WsFederation
 
         public async Task<string> GenerateSerializedRstr(ValidatedWsFederationRequest request)
         {
-            var wsfedOptions = new WsFederationOptions();
             var now = _clock.UtcNow.UtcDateTime;
             var credential = await _keys.GetSigningCredentialsAsync();
             var key = credential.Key as X509SecurityKey;
@@ -72,7 +73,7 @@ namespace IdentityServer4.WsFederation
                 IssuedAt = now,
                 Issuer = _options.IssuerUri,
                 NotBefore = now,
-                SigningCredentials = key == null ? credential : new X509SigningCredentials(key.Certificate, wsfedOptions.DefaultSignatureAlgorithm),
+                SigningCredentials = key == null ? credential : new X509SigningCredentials(key.Certificate, _federationOptions.DefaultSignatureAlgorithm),
                 Subject = await CreateSubjectAsync(request)
             };
             //For whatever reason, the Digest method isn't specified in the builder extensions for identity server.
@@ -87,7 +88,7 @@ namespace IdentityServer4.WsFederation
             if (tokenDescriptor.SigningCredentials.Digest == null)
             {
                 _logger.LogInformation($"SigningCredentials does not have a digest specified. Using default digest algorithm of {SecurityAlgorithms.Sha256Digest}");
-                tokenDescriptor.SigningCredentials = new SigningCredentials(tokenDescriptor.SigningCredentials.Key, tokenDescriptor.SigningCredentials.Algorithm ?? wsfedOptions.DefaultSignatureAlgorithm, wsfedOptions.DefaultDigestAlgorithm);
+                tokenDescriptor.SigningCredentials = new SigningCredentials(tokenDescriptor.SigningCredentials.Key, tokenDescriptor.SigningCredentials.Algorithm ?? _federationOptions.DefaultSignatureAlgorithm, _federationOptions.DefaultDigestAlgorithm);
             }
 
             _logger.LogDebug("Creating SAML 2.0 security token.");
@@ -137,24 +138,23 @@ namespace IdentityServer4.WsFederation
             await _profile.GetProfileDataAsync(ctx);
 
             // map outbound claims
-            var options = new WsFederationOptions();
             var nameid = new Claim(ClaimTypes.NameIdentifier, result.Subject.GetSubjectId());
-            nameid.Properties[ClaimProperties.SamlNameIdentifierFormat] = options.DefaultSamlNameIdentifierFormat;
+            nameid.Properties[ClaimProperties.SamlNameIdentifierFormat] = _federationOptions.DefaultSamlNameIdentifierFormat;
 
             var outboundClaims = new List<Claim> { nameid };
             foreach (var claim in ctx.IssuedClaims)
             {
-                if (options.DefaultClaimMapping.TryGetValue(claim.Type, out var type))
+                if (_federationOptions.DefaultClaimMapping.TryGetValue(claim.Type, out var type))
                 {
                     var outboundClaim = new Claim(type, claim.Value, claim.ValueType);
                     if (outboundClaim.Type == ClaimTypes.NameIdentifier)
                     {
-                        outboundClaim.Properties[ClaimProperties.SamlNameIdentifierFormat] = options.DefaultSamlNameIdentifierFormat;
+                        outboundClaim.Properties[ClaimProperties.SamlNameIdentifierFormat] = _federationOptions.DefaultSamlNameIdentifierFormat;
                     }
 
                     outboundClaims.Add(outboundClaim);
                 }
-                else if (options.DefaultTokenType != WsFederationConstants.TokenTypes.Saml11TokenProfile11)
+                else if (_federationOptions.DefaultTokenType != WsFederationConstants.TokenTypes.Saml11TokenProfile11)
                 {
                     outboundClaims.Add(claim);
                 }

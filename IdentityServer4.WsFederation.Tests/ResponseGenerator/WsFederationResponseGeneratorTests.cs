@@ -42,7 +42,7 @@ namespace IdentityServer4.WsFederation.Tests.ResponseGenerator
             };
 
             return new WsFederationSigninResponseGenerator(logger, clock, options, keys, new InMemoryResourcesStore(new []{new IdentityResource("name", new []{JwtClaimTypes.Name}), }),
-                new DefaultProfileService(Substitute.For<ILogger<DefaultProfileService>>()));
+                new DefaultProfileService(Substitute.For<ILogger<DefaultProfileService>>()), new WsFederationOptions());
         }
 
         private ValidatedWsFederationRequest GetDefaultValidatedRequest()
